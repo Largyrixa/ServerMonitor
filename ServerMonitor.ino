@@ -1,5 +1,5 @@
-#include "functions.h"
-#include "definitions.h"
+#include "src/monitor.h"
+#include "src/definitions.h"
 
 void setup() 
 {
