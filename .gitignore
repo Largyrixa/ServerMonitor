@@ -1,2 +1,3 @@
 .obsidian
-environment.h
+src/environment.h
+server-app/.venv
