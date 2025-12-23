@@ -1,5 +1,5 @@
-#ifndef MONITOR_H
-#define MONITOR_H
+#ifndef SERVERCONTROLLER_H
+#define SERVERCONTROLLER_H
 
 #include "definitions.h"
 
@@ -12,7 +12,7 @@ private:
     const String wifi;
 
 public:
-    Monitor();
+    ServerController();
 
     ServerState getState();
     void updateState();
@@ -20,7 +20,7 @@ public:
     void ligar();
     void desligar();
 
-    void (const char *& msg);
+    void SendMsg(const char *& msg);
 };
 
 #endif
