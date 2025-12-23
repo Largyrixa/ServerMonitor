@@ -25,3 +25,10 @@ endmodule
 ```
 ### Observações
 - **Optoacoplador:** é um componente que serve para transmitir sinais elétricos sem usar a mesma corrente usando luz.
+
+## Serial
+
+É uma forma de comunicação em que um bit é mandado por vez. No caso da placa, pela porta USB dela
+### Baud
+
+É a taxa de transferência de bits, um baud maior significa uma taxa maior de transferência 
