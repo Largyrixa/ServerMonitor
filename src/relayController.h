@@ -2,21 +2,21 @@
 #define RELAY_CONTROLLER_H
 
 #include <Arduino.h>
-#include <cstdint>
+#include <Wire.h>
 
 class RelayController {
 private:
-    const uint8_t pin;
+    const uint8_t PIN;
+    const bool ACTIVE_LOW;
     bool state;
 
 public:
-    RelayController(uint8_t relayPin);
-    void begin();
+    RelayController(uint8_t pin, bool active_low = true);
+
     void turnOn();
     void turnOff();
-    void toggle();
     bool getState();
-    void pulse(unsigned long duration);
+    void pulse(unsigned long duration_ms);
 };
 
 #endif
