@@ -38,7 +38,7 @@ Com um teste no multímetro minha suspeita foi confirmada, o relé 1 do módulo 
 ![[circuito-1.png]]
 *Circuito final do dia 1*
 
-## Dia 2 - 21/12/25
+## Dia 2 - 22/12/25
 
 Hoje eu não tive um objetivo bem claro, e também não fiz muita coisa, mas descobri algumas coisas legais.
 ### WiFiManager
@@ -231,3 +231,153 @@ bool le_dado_nvs(uint8_t *dado_ptr, const String &chave_nvs)
 O *enum* que eu fiz no `definitions.h` usa o `uint8_t`, como no *snippet* acima, então não devemos ter nenhum problema.
 
 ==Obs:== quando eu for montar o programa final, vou usar uma classe que engloba essas duas funções, o código acima é só um exemplo de como usar 
+
+## Dia 4 - 23/12/25
+
+### Objetivos
+- Integração do bot do telegram
+- Implementação das classes (refatoração)
+- Automatização do script python
+
+### Sobre o bot do telegram
+
+Existe uma biblioteca famosa chamada [Universal Telegram Bot](https://github.com/witnessmenow/Universal-Arduino-Telegram-Bot/tree/master) que parece ser bem simples de usar. Primeiramente eu criei o bot com o BotFather e depois testei com o seguinte código, disponível no repositório da biblioteca
+
+```cpp
+#include "src/environment.h" // Para o BOT_TOKEN
+
+#include <WiFiManager.h>
+#include <WiFiClientSecure.h>
+#include <UniversalTelegramBot.h>
+
+#define SERIAL_BAUD 9600UL
+
+// tempo médio entre escaneamento de mensagens
+const unsigned long BOT_MTBS = 1000;
+
+WiFiClientSecure client;
+UniversalTelegramBot bot(BOT_TOKEN, client);
+unsigned long bot_lasttime;
+
+void setup()
+{
+  Serial.begin(SERIAL_BAUD);
+  Serial.println();
+  pinMode(RELAY_PIN, OUTPUT);
+  digitalWrite(RELAY_PIN, HIGH);  // relé desligado
+
+  // Configuração do WiFi
+  WiFiManager wm;
+  wm.setConfigPortalTimeout(240);
+  if (!wm.autoConnect("ESP32")) {
+    // Reinicia a placa caso não consiga conectar
+    delay(3000);
+    ESP.restart();
+    delay(5000);
+  }
+
+  client.setCACert(TELEGRAM_CERTIFICATE_ROOT);
+  Serial.println("*configurado com sucesso!");
+}
+
+void loop()
+{
+  if (millis() - bot_lasttime > BOT_MTBS) {
+    int numNewMessages = bot.getUpdates(bot.last_message_received + 1);
+
+    while (numNewMessages) {
+      for (int i = 0; i < numNewMessages; i++) {
+        bot.sendMessage(bot.messages[i].chat_id, bot.messages[i].text);
+      }
+      numNewMessages = bot.getUpdates(bot.last_message_received + 1);
+    }
+    bot_lasttime = millis();
+  }
+}
+```
+
+O código só é um echo bot, ou seja, ele responde a qualquer mensagem que você mandar com o mesmo texto, e funcionou perfeitamente.
+
+### Sobre as implementações
+
+A primeira implementação que eu fiz foi a do controle do relé, fiz de uma maneira mais genérica, para facilitar a implementação em relays active_high
+
+```cpp
+#include "relayController.h"
+
+RelayController::RelayController(uint8_t pin, bool active_low) : PIN(pin),  ACTIVE_LOW(active_low), state(false)
+{
+    pinMode(PIN, OUTPUT);
+    digitalWrite(PIN, ((ACTIVE_LOW) ? HIGH : LOW));
+}
+
+bool RelayController::getState() { return state; }
+
+void RelayController::turnOn()
+{
+    digitalWrite(PIN, ((ACTIVE_LOW) ? LOW : HIGH));
+    state = true;
+}
+
+void RelayController::turnOff()
+{
+    digitalWrite(PIN, ((ACTIVE_LOW) ? HIGH : LOW));
+    state = false;
+}
+
+void RelayController::pulse(unsigned long duration_ms)
+{
+    turnOn();
+    delay(duration_ms);
+    turnOff();
+    delay(10); // delay final por segurança
+}
+```
+
+Para o ServerController, vou usar somente o RelayController::pulse() para ligar o server.
+
+### Nota final do dia
+
+Não consegui terminar os objetivos, mas acredito que automatizar o script python (adicionar ele a um contêiner ou adicionar como serviço do linux) seja uma tarefa fácil.
+
+O que consegui fazer:
+- Implementei o RelayController por completo
+- Implementei o ServerController, faltam métodos para tratar os comandos do chat
+
+```cpp
+class ServerController {
+private:
+    ServerState state;
+
+    const unsigned long pulse_duration_ms;
+
+    WifiClientSecure client;
+    UniversalTelegramBot bot;
+
+    // Controlador do rele
+    RelayController *relay;
+
+public:
+	// Construtor: inicia os atributos e liga o servidor, se necessário
+    ServerController(RelayController *relay, const unsigned long pulse_duration_ms = 100, const String &botToken = BOT_TOKEN);
+    
+    ServerState getState();
+
+    // Atualiza e salva o estado atual na memória
+    bool saveState();
+    // Carrega o estado atual da memória
+    bool loadState();
+
+    // Monitora o servidor e manda logs caso mude o estado
+    void watch(); // Não implementado
+    
+    // Verifica os inputs e trata os comandos
+    void handleCommands(); // Não implementado
+
+    void powerOn();
+    void powerOff();
+
+	// Manda uma mensagem para o chat no telegram
+    void sendLog(const String &msg);
+};
+```
