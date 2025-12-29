@@ -1,8 +1,9 @@
+#include <cstdint>
+#include "Server.h"
 #include "serverController.h"
 #include "definitions.h"
 #include "environment.h"
 #include "relayController.h"
-#include <cstdint>
 
 /*
 ServerConfig::ServerConfig()
@@ -19,9 +20,9 @@ relay(relay), pulse_duration_ms(pulse_duration_ms), bot(botToken, client)
     client.setCACert(TELEGRAM_CERTIFICATE_ROOT);
     loadState();
     ServerState current_state = getState();
-    if ((current_state == ServerState::DESLIGADO || current_state == ServerState::ERRO) &&
-        (state == ServerState::LIGADO || state == ServerState::LIGANDO)) { // Precisamos retomar o estado passado
-            powerOn();
+    if ((current_state == ServerState::INACTIVE || current_state == ServerState::ERROR) && (state == ServerState::ACTIVE || state == ServerState::BOOTING)) {
+        // Precisamos retomar o estado passado
+        powerOn();
     }
 }
 
@@ -29,7 +30,7 @@ ServerState ServerController::getState()
 {
     const char command[] = "PING";
     Serial.println(command);
-    delay(500);
+    Serial.flush();
 
     /*
      * Obs: O método Serial.readStringUntil() para de ler após um certo tempo
@@ -37,11 +38,11 @@ ServerState ServerController::getState()
      */
     const String response = Serial.readStringUntil('\n');
     if (response == "ERRO") {
-        return ServerState::ERRO;
+        return ServerState::ERROR;
     } else if (response == "LIGADO") {
-        return ServerState::LIGADO;
+        return ServerState::ACTIVE;
     } else { // Deu timeout
-        return ServerState::DESLIGADO;
+        return ServerState::INACTIVE;
     }
 }
 
@@ -49,13 +50,13 @@ void ServerController::powerOn()
 {
     // Verificação inicial
     state = getState();
-    if (state == ServerState::LIGADO) {
+    if (state == ServerState::ACTIVE) {
         sendLog("Servidor já está ligado!");
         return;
     }
 
     String log = "Ligando servidor...";
-    state = ServerState::LIGANDO;
+    state = ServerState::BOOTING;
     sendLog(log);
 
     relay->pulse(pulse_duration_ms);
@@ -64,17 +65,18 @@ void ServerController::powerOn()
     uint8_t tries = 10;
     while (tries--) {
         state = getState();
+        if (state == ServerState::ACTIVE)
+            break;
         delay(1000);
     }
 
-    state = getState();
     switch (state) {
-    case ServerState::LIGADO:
+    case ServerState::ACTIVE:
         log = "Servidor ativo!";
         sendLog(log);
         break;
 
-    case ServerState::DESLIGADO:
+    case ServerState::INACTIVE:
         log = "Não foi possível ligar o servidor!";
         sendLog(log);
         break;
@@ -90,7 +92,7 @@ void ServerController::powerOn()
 void ServerController::powerOff()
 {
     String log = "Desligando servidor...";
-    state = ServerState::DESLIGANDO;
+    state = ServerState::SHUTTING_DOWN;
     sendLog(log);
 
     // Manda o comando de desligar para o servidor
@@ -101,22 +103,36 @@ void ServerController::powerOff()
     // Lê o serial até o caractere de nova linha
     String response = Serial.readStringUntil('\n');
     if (response == "ERRO") {
-        log = "Erro ao tentar desligar o servidor!";
-        sendLog(log);
+        state = ServerState::ERROR;
     } else {
         state = getState();
-        uint8_t tries = 10;
+        uint8_t tries = 5;
         while (tries--) {
-            if (state == ServerState::DESLIGADO) {
-                log = "Server inativo!";
-                sendLog(log);
-            }
+            if (state == ServerState::INACTIVE)
+                break;
             delay(1000);
             state = getState();
         }
-        log = "Erro ao tentar desligar o servidor!";
         sendLog(log);
     }
+
+    switch (state) {
+    case ServerState::ACTIVE:
+        log = "Não foi possível desligar o servidor!";
+        sendLog(log);
+        break;
+
+    case ServerState::INACTIVE:
+        log = "Servidor inativo!";
+        sendLog(log);
+        break;
+
+    default:
+        log = "Erro ao tentar desligar o servidor!";
+        sendLog(log);
+        break;
+    }
+
     saveState();
 }
 
@@ -137,9 +153,10 @@ bool ServerController::saveState()
     if (err != ESP_OK)
         return false;
 
-    const String chave_nvs = "ESTADO SERVIDOR";
+    const char *chave_nvs = "ESTADO SERVIDOR";
 
-    err = nvs_set_u8(handler, chave_nvs, (uint8_t)state);
+    uint8_t tmp = static_cast<uint8_t>(state);
+    err = nvs_set_u8(handler, chave_nvs, tmp);
 
     if (err != ESP_OK) {
         nvs_close(handler);
@@ -165,8 +182,12 @@ bool ServerController::loadState()
     if (err != ESP_OK)
         return false;
 
-    const String chave_nvs = "ESTADO SERVIDOR";
-    err = nvs_get_u8(handler, chave_nvs, &state);
+    const char *chave_nvs = "ESTADO SERVIDOR";
+    uint8_t tmp;
+    err = nvs_get_u8(handler, chave_nvs, &tmp);
+
+    if (tmp < static_cast<uint8_t>(ServerState::_COUNT))
+        state = static_cast<ServerState>(tmp);
 
     nvs_close(handler);
     if (err != ESP_OK)
