@@ -381,3 +381,57 @@ public:
     void sendLog(const String &msg);
 };
 ```
+
+## Dia 5 - 25/12/25
+
+### Objetivos
+
+- Encontrar uma maneira de alimentar a placa sem o USB
+
+### Motivação
+
+Hoje eu resolvi não testar, fazer ou refatorar nenhum código do monitor em si, mas foquei em encontrar uma fonte de alimentação para a ESP32 que não o USB conectado ao notebook. Isso porquê, se o notebook ficar sem energia, a placa desliga também e não consegue religar o servidor.
+
+### Possibilidades
+
+ Dentre as possibilidades que pensei, fiquei entre
+
+1. ligar um *jumper* diretamente das portas de VBUS e GND de uma fonte de celular (as mais extremas a esquerda e direita respectivamente) no VIN e GND da ESP32, o que eu achei um tanto arriscado
+2. comprar um adaptador de USB tipo B que desse os pinos de alimentação diretamente, o que é o mais limpo, seguro, porém mais caro de se fazer
+3. usar uma outra placa como fonte para o circuito, o que eu escolhi
+
+### Sobre a minha escolha
+
+Eu tinha uma placa de uma empresa brasileira chamada [Modelix](https://www.modelix.com.br/), mais especificamente a placa Modelix 3.6. A placa satisfaz a todos as minhas necessidades
+1. é alimentada via USB 5v (o mesmo de carregadores celulares)
+2. tem saídas de 5v (bom para a ESP32 e resolve o problema do relé)
+3. tem entrada para baterias, o que pode ser uma boa coisa no futuro
+
+O único problema dela é o software de programação, o [Modelix System](https://www.modelix.com.br/software-de-programacao-simulador), que só tem disponibilidade para Windows, o que é um empecilho para mim.
+
+Com isso, como estou usando a IDE do Arduino, pesquisei sobre o modelo do microcontrolador da minha placa e econtrei um site que dizia que ele era um bom substituto para o Arduino Uno e para o Arduino Duemilanove.
+
+Logo fui testar na IDE e, usando o programador do Duemilanove, funcionou. Como o módulo relé que tenho é de 5v e a saída da ESP32 é de 3.3v, aproveitei para alimentar o módulo também e, no final usei a placa como um intermediador entre a ESP32 e o relé, além de fonte do circuito. O código que usei foi o seguinte
+
+```cpp
+#define RELAY_PIN 4
+#define ESP32_PIN 3
+#define ESP32_SIG digitalRead(ESP32_PIN)
+
+void setup()
+{
+	pinMode(ESP32_PIN, INPUT);
+	pinMode(RELAY_PIN, OUTPUT);
+}
+
+void loop()
+{
+	digitalWrite(RELAY_PIN, ESP32_SIG);
+}
+```
+
+É um código bem simples, que simplesmente transfere o sinal da ESP32 para o módulo relé. É mais seguro, pois evita que a baixa voltagem da ESP não ligue o relé.
+
+### Descoberta
+
+O relé do módulo que a priori eu achei que não estava funcionando, começou a funcionar com a voltagem correta de 5v, o que demonstra que a correta alimentação pode evitar falhas no circuito.
