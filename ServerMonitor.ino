@@ -1,20 +1,41 @@
-#include "src/monitor.h"
 #include "src/definitions.h"
+#include "src/relayController.h"
+#include "src/serverController.h"
 
-#define SERIAL_BAUD 9600UL
+#include <WiFiManager.h>
+
+RelayController relay(RELAY_PIN, true);
+ServerController *server;
 
 void setup() 
 {
   Serial.begin(SERIAL_BAUD);
-  delay(10);
-  pinMode(RELAY_PIN, OUTPUT);
-  digitalWrite(RELAY_PIN, HIGH);  // relé desligado
+  Serial.println();
+  Serial.flush();
+
+  WiFiManager wm;
+  wm.setConfigPortalTimeout(240);
+  if (!wm.autoConnect("ESP32")) {
+    delay(1000);
+    ESP.restart();
+  }
+
+  // pinMode(2, INPUT);
+
+  // server = new ServerController(&relay);
+
+  relay.pulse(100);
 }
 
 void loop() 
 {
-  Serial.println("DESLIGAR");
-  delay(10000);
-  Serial.println("ERRO");
-  delay(10000);
+  const String s = Serial.readStringUntil('\n');
+
+  if (s == "ligar") {
+    relay.turnOn();
+  } else if (s == "desligar") {
+    relay.turnOff();
+  } else if (s == "pulso") {
+    relay.pulse(500);
+  }
 }
