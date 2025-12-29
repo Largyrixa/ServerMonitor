@@ -5,7 +5,6 @@
 #include "environment.h"
 #include "relayController.h"
 
-#include <Serial.h>
 #include <Arduino.h>
 #include <nvs_flash.h>
 #include <UniversalTelegramBot.h>
@@ -28,7 +27,7 @@ private:
 
     const unsigned long pulse_duration_ms;
 
-    WifiClientSecure client;
+    WiFiClientSecure client;
     UniversalTelegramBot bot;
 
     // Controlador do rele
@@ -36,7 +35,7 @@ private:
 
 public:
     // Construtor: inicia os atributos e liga o servidor, se necessário
-    ServerController(RelayController *relay, const unsigned long pulse_duration_ms = 100, const String &botToken = BOT_TOKEN);
+    ServerController(RelayController *relay, const unsigned long pulse_duration_ms = 1000, const String &botToken = BOT_TOKEN);
 
     ServerState getState();
 
