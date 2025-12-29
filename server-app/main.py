@@ -3,6 +3,7 @@ from time import sleep
 
 import serial
 
+port = '/dev/ttyACM0'
 
 def desligar_server():
     # system("sudo shuttdown now")
@@ -29,8 +30,8 @@ while True:
             else:
                 response = "ERRO\n"
             ser.write(response.encode())
-            print(line)
-            print(response)
+            print("ESP32:", line)
+            print("RESPOSTA:", response)
     except Exception as e:
         print(e)
     sleep(1)
