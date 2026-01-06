@@ -1,50 +1,44 @@
-#include <cstdint>
 #include "Server.h"
 #include "serverController.h"
-#include "definitions.h"
+#include "serverState.h"
 #include "environment.h"
 #include "relayController.h"
 
-/*
-ServerConfig::ServerConfig()
-{
-    serverIP.fromString(SERVER_IP);
-    botToken = BOT_TOKEN;
-    serverPort = SERVER_PORT;
-}
-*/
+using namespace std;
 
-ServerController::ServerController(RelayController *relay,  const unsigned long pulse_duration_ms, const String &botToken) :
-relay(relay), pulse_duration_ms(pulse_duration_ms), bot(botToken, client)
-{
-    client.setCACert(TELEGRAM_CERTIFICATE_ROOT);
-    loadState();
-    ServerState current_state = getState();
-    if ((current_state == ServerState::INACTIVE || current_state == ServerState::ERROR) && (state == ServerState::ACTIVE || state == ServerState::BOOTING)) {
-        // Precisamos retomar o estado passado
+ServerController::ServerController(UniversalTelegramBot &_bot,
+                                  function<bool()> _onFunc,
+                                  function<bool()> _offFunc,
+                                  function<ServerState()> _pingFunc):
+    bot(_bot),
+    powerOnFunc(_onFunc),
+    powerOffFunc(_offFunc),
+    pingFunc(_pingFunc){}
+
+void ServerController::begin() {
+    if (!loadState())
+        state = ServerState::ERROR;
+    
+    const ServerState currentState = getState();
+    if ((currentState == ServerState::INACTIVE || currentState == ServerState::ERROR) && (state == ServerState::ACTIVE || state == ServerState::BOOTING)) {
+        sendLog("ALERTA: O servidor desligou. Ligando novamente!");
         powerOn();
     }
+
+    const String commands = F(
+        "["
+        "{\"command\":\"start\", \"description\":\"Mensagem enviada quando você abre o chat com o bot\"},"
+        "{\"command\":\"help\", \"description\":\"Ajuda na utilização do bot\"},"
+        "{\"command\":\"ligar\", \"description\":\"Liga o servidor\"},"
+        "{\"command\":\"desligar\", \"description\":\"Desliga o servidor\"},"
+        "{\"command\":\"status\", \"description\":\"Verifica o status do servidor\"},"
+        "{\"command\":\"do\", \"description\":\"NÃO IMPLEMENTADO AINDA\"}"
+        "]"
+    );
+    bot.setMyCommands(commands);
 }
 
-ServerState ServerController::getState()
-{
-    const char command[] = "PING";
-    Serial.println(command);
-    Serial.flush();
-
-    /*
-     * Obs: O método Serial.readStringUntil() para de ler após um certo tempo
-     * delimitado por Serial.setTimeout(), por isso podemos usá-lo dessa maneira
-     */
-    const String response = Serial.readStringUntil('\n');
-    if (response == "ERRO") {
-        return ServerState::ERROR;
-    } else if (response == "LIGADO") {
-        return ServerState::ACTIVE;
-    } else { // Deu timeout
-        return ServerState::INACTIVE;
-    }
-}
+ServerState ServerController::getState() { return pingFunc(); }
 
 void ServerController::powerOn()
 {
@@ -52,6 +46,7 @@ void ServerController::powerOn()
     state = getState();
     if (state == ServerState::ACTIVE) {
         sendLog("Servidor já está ligado!");
+        saveState();
         return;
     }
 
@@ -59,15 +54,16 @@ void ServerController::powerOn()
     state = ServerState::BOOTING;
     sendLog(log);
 
-    relay->pulse(pulse_duration_ms);
-
-    // Não confiar no relé, apenas no ping
-    uint8_t tries = 10;
-    while (tries--) {
-        state = getState();
-        if (state == ServerState::ACTIVE)
+    for (int i = 0; i < 5 && state != ServerState::ACTIVE; i++)  {
+        // Verificação de erro ao tentar ligar
+        if (!powerOnFunc()) {
+            state = ServerState::ERROR;
             break;
-        delay(1000);
+        }
+
+        // Espera 10 segundos para o servidor ligar
+        delay(10000);
+        state = getState();
     }
 
     switch (state) {
@@ -91,29 +87,27 @@ void ServerController::powerOn()
 
 void ServerController::powerOff()
 {
+    // Verificação inicial
+    state = getState();
+    if (state == ServerState::INACTIVE) {
+        sendLog("O servidor já está desligado!");
+        saveState();
+        return;
+    }
+
     String log = "Desligando servidor...";
     state = ServerState::SHUTTING_DOWN;
     sendLog(log);
 
-    // Manda o comando de desligar para o servidor
-    const char command[] = "DESLIGAR";
-    Serial.println(command);
-    delay(500);
-
-    // Lê o serial até o caractere de nova linha
-    String response = Serial.readStringUntil('\n');
-    if (response == "ERRO") {
-        state = ServerState::ERROR;
-    } else {
-        state = getState();
-        uint8_t tries = 5;
-        while (tries--) {
-            if (state == ServerState::INACTIVE)
-                break;
-            delay(1000);
-            state = getState();
+    for (int i = 0; i < 5 && state != ServerState::INACTIVE; i++) {
+        if (!powerOffFunc()) {
+            state = ServerState::ERROR;
+            break;
         }
-        sendLog(log);
+
+        // Espera 10 segundos para o servidor desligar
+        delay(10000);
+        state = getState();
     }
 
     switch (state) {
@@ -134,6 +128,25 @@ void ServerController::powerOff()
     }
 
     saveState();
+}
+
+String ServerController::sendCommand(const String &command) {
+    if (state != ServerState::ACTIVE) {
+        return "ERRO: Servidor não está ativo!";
+    }
+
+    Serial.println("/do " + command);
+    Serial.flush();
+    
+    String resposta = "";
+    while (true) {
+        const String parte = Serial.readStringUntil('\n');
+        if (parte == "/fim") {
+            return resposta;
+        } else {
+            resposta += parte;
+        }
+    }
 }
 
 bool ServerController::saveState()
@@ -196,4 +209,70 @@ bool ServerController::loadState()
         return false;
 }
 
-void ServerController::sendLog(const String &msg) { bot.sendMessage(CHAT_ID, msg); }
+void ServerController::sendLog(const String &msg) { bot.sendMessage(CHAT_ID, msg, "Markdown"); }
+
+void ServerController::tick() {
+    const auto currentState = getState();
+
+    if (currentState == ServerState::ERROR) {
+        sendLog("ATENÇÃO: Servidor com erro!\nVerificação manual necessária")
+    }
+
+    // Se o servidor desligou e estava ligado
+    if ((currentState == ServerState::INACTIVE || currentState == ServerState::SHUTTING_DOWN) &&
+        (state == ServerState::ACTIVE || state == ServerState::BOOTING)) {
+        powerOn();
+    }
+    saveState();
+
+    // Tratamento dos comandos do bot
+    int numNewMessages = bot.getUpdates(bot.last_message_received + 1);
+
+    while (numNewMessages) {
+        for (int i = 0; i < numNewMessages; i++) {
+            telegramMessage &msg = bot.messages[i];
+            if (msg.text == "/help" || msg.text == "/start") {
+                const String answer = F(
+                    "# Este bot é um `controlador de servidor`\n",
+                    "Se você está usando ele, provavelmente você viu meu [repositório](https://github.com/Largyrixa/ServerController)"
+                    "e configurou um monitor para seu servidor.\n"
+                    "Se sim, muito obrigado! <3\n"
+                    "# Comandos\n"
+                    "- `/ligar`: liga o servidor\n"
+                    "- `/desligar`: desliga o servidor\n"
+                    "- `/status`: retorna o estado do servidor\n"
+                    "- `/do comando`: envia um comando para o terminal do servidor"
+                );
+                sendLog(answer);
+            } else if (msg.text == "/ligar") {
+                powerOn();
+            } else if (msg.text == "/desligar") {
+                powerOff();
+            } else if (msg.text == "/status") {
+                String answer;
+                switch (state) {
+                    case ServerState::ACTIVE:
+                        answer = "Servidor ativo 👍🥥";
+                        break;
+                    case ServerState::BOOTING:
+                        answer = "Guenta aí, servidor ligando ✋🥥";
+                        break;
+                    case ServerState::INACTIVE:
+                        answer = "Servidor inativo 🥥👎";
+                        break;
+                    case ServerState::SHUTTING_DOWN:
+                        answer = "Servidor desligando ❌🥥";
+                        break;
+                    default:
+                        answer = "NO COCONUTS DETECTED!";
+                        break;
+                }
+                sendLog(answer);
+            } else if (msg.text.substring(0, 3) == "/do ") {
+                const String response = sendCommand(msg.text.substring(4));
+                sendLog(response);
+            }
+        }
+        numNewMessages = bot.getUpdates(bot.last_message_received + 1);
+    }
+}

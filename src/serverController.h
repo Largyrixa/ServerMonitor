@@ -1,7 +1,8 @@
+#include "esp_wifi_types_generic.h"
 #ifndef SERVERCONTROLLER_H
 #define SERVERCONTROLLER_H
 
-#include "definitions.h"
+#include "serverState.h"
 #include "environment.h"
 #include "relayController.h"
 
@@ -9,6 +10,7 @@
 #include <nvs_flash.h>
 #include <UniversalTelegramBot.h>
 #include <WiFiClientSecure.h>
+#include <functional>
 
 /*
 struct ServerConfig {
@@ -24,28 +26,33 @@ struct ServerConfig {
 class ServerController {
 private:
     ServerState state;
+    UniversalTelegramBot &bot;
 
-    const unsigned long pulse_duration_ms;
-
-    WiFiClientSecure client;
-    UniversalTelegramBot bot;
-
-    // Controlador do rele
-    RelayController *relay;
+    // funções para ligar e desligar
+    std::function<bool()> powerOnFunc;
+    std::function<bool()> powerOffFunc;
+    std::function<ServerState()> pingFunc;
 
 public:
-    // Construtor: inicia os atributos e liga o servidor, se necessário
-    ServerController(RelayController *relay, const unsigned long pulse_duration_ms = 1000, const String &botToken = BOT_TOKEN);
+    // Construtor: inicia os atributos
+    ServerController(UniversalTelegramBot &_bot,
+                     std::function<bool()> _onFunc,
+                     std::function<bool()> _offFunc,
+                     std::function<ServerState()> _pingFunc);
+
+    // Inicializa o controlador, liga o servidor, se necessário
+    void begin();
 
     ServerState getState();
 
     // Atualiza e salva o estado atual na memória
     bool saveState();
+    
     // Carrega o estado atual da memória
     bool loadState();
 
     // Monitora o servidor e manda logs caso mude o estado
-    void watch();
+    void loop();
 
     // Verifica os inputs e trata os comandos
     void handleCommands();
