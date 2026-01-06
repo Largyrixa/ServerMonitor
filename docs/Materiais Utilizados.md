@@ -1,3 +1,3 @@
 - Placa ESP32 WRoom
-- Módulo Relé 5V (o meu veio com 2, mas só um foi necessário)
+- Servo Motor SG92R
 - Um notebook velho como servidor
