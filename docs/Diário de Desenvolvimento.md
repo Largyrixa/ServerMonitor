@@ -435,3 +435,51 @@ void loop()
 ### Descoberta
 
 O relé do módulo que a priori eu achei que não estava funcionando, começou a funcionar com a voltagem correta de 5v, o que demonstra que a correta alimentação pode evitar falhas no circuito.
+
+## Dia 6 - 03/12/26
+
+### Objetivos
+- Refatorar o código do controlador do server
+- Adaptar o circuito para um servo motor
+### Explicação
+
+Na semana passada, eu abri o notebook que estou usando de servidor para poder conectar o relé no botão. Porém, quando abri (depois de muitos parafusos) vi que o botão era soldado na placa, ao contrário do que eu pensei, que fosse um par de fios ligados na placa, e que para ligar o computador pela placa-mãe eu precisaria de soldar uns pontos muito pequenos, o que aumentaria o risco de erro.
+
+### Sobre a refatoração
+
+A minha outra ideia é comprar um servo motor que servirá para acionar mecanicamente o botão do notebook, o que reduz drasticamente a complexidade e risco do projeto.
+
+O motor que eu escolhi foi o [SG92R](https://docs.cirkitdesigner.com/component/022ad3b3-4d33-40f1-abc1-4decda41a584/servomotor-sg92r), paguei 25 reais nele em uma loja local. O escolhi por ser um bom motor, com engrenagens em fibra de carbono, o que garante resistência e confiabilidade.
+
+### Generalização do Código
+
+Ao invés de fazer uma classe `ServerController` que só serve para controladores com relé, vou fazer de um jeito que a classe guarde uma função para ligar e outra para desligar, e os métodos da classe servirão apenas como *wrappers* para mandar notificações no telegram.
+
+Exemplo de como declarar o `ServerController`  agora
+
+```cpp
+bool ligar() {
+	/*
+	Lógica para ligar o servidor 
+	*/
+}
+
+bool desligar() {
+	/*
+	Lógica para desligar o servidor
+	*/
+}
+
+ServerState ping() {
+	/*
+	Lógica de ping
+	*/
+}
+
+UniversalTelegramBot bot;
+ServerController(bot, ligar, desligar, ping);
+```
+
+### Adaptação do Circuito
+
+Para colocar o servo motor no circuito, apenas conectei o PWM (geralmente o cabo laranja) na porta 4 do GPIO da ESP32 e o alimentei com uma fonte externa (no meu caso a outra placa que estou usando). Para que o motor aperte o botão, coloquei umas borrachas na ponta do braço e grudei ele com cola quente na carcaça do notebook de forma que com uma pequena rotação (aproximadamente 20º) ele aperte o botão.
