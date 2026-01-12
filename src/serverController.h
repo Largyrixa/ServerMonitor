@@ -4,7 +4,6 @@
 
 #include "serverState.h"
 #include "environment.h"
-#include "relayController.h"
 
 #include <Arduino.h>
 #include <nvs_flash.h>
@@ -29,16 +28,18 @@ private:
     UniversalTelegramBot &bot;
 
     // funções para ligar e desligar
-    std::function<bool()> powerOnFunc;
-    std::function<bool()> powerOffFunc;
-    std::function<ServerState()> pingFunc;
+    const std::function<bool()> powerOnFunc;
+    const std::function<bool()> powerOffFunc;
+    const std::function<ServerState()> pingFunc;
+    const std::function<String (const String &)> commandFunc;
 
 public:
     // Construtor: inicia os atributos
     ServerController(UniversalTelegramBot &_bot,
-                     std::function<bool()> _onFunc,
-                     std::function<bool()> _offFunc,
-                     std::function<ServerState()> _pingFunc);
+                     const std::function<bool()> &_onFunc,
+                     const std::function<bool()> &_offFunc,
+                     const std::function<ServerState()> &_pingFunc,
+                     const std::function<String(const String &)> &_commandFunc);
 
     // Inicializa o controlador, liga o servidor, se necessário
     void begin();
@@ -54,8 +55,8 @@ public:
     // Monitora o servidor e manda logs caso mude o estado
     void loop();
 
-    // Verifica os inputs e trata os comandos
-    void handleCommands();
+    // Manda um comando pelo serial do servidor
+    String sendCommand(const String &command);
 
     void powerOn();
     void powerOff();
