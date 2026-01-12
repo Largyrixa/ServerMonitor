@@ -1,10 +1,10 @@
 #include "src/serverState.h"
 #include "src/environment.h"
-#include "src/relayController.h"
 #include "src/serverController.h"
 
 #include <WiFiManager.h>
 #include <ESP32Servo.h>
+#include <HTTPClient.h>
 
 using namespace std;
 
@@ -12,20 +12,22 @@ using namespace std;
 bool powerServerOn();
 bool powerServerOff();
 ServerState pingServer();
+String serverCommand(const String &);
 
 // Cliente WiFi e bot do telegram
 WiFiClientSecure client;
 UniversalTelegramBot bot(BOT_TOKEN, client);
 
 // Controlador do servidor
-ServerController server(bot, powerServerOn, powerServerOff, pingServer);
+ServerController server(bot, powerServerOn, powerServerOff, pingServer, serverCommand);
 
 // Servo motor que aciona o botão
 #define SERVO_PIN 4
 Servo servo;
 
-
 #define SERIAL_BAUD 115200
+
+const String HOST_NAME = "http://"SERVER_IP":3232";
 
 void setup() {
   Serial.begin(SERIAL_BAUD);
@@ -41,41 +43,25 @@ void setup() {
 
   client.setCACert(TELEGRAM_CERTIFICATE_ROOT);
   server.begin();
+
   servo.attach(SERVO_PIN);
+  servo.write(0);
 }
 
 void loop() {
-  const String s = Serial.readStringUntil('\n');
-
-  if (s == "ligar") {
-    server.powerOn();
-  } else if (s == "desligar") {
-    server.powerOff();
-  } else if (s == "ping") {
-    auto state = server.getState();
-    switch (state) {
-      case ServerState::ACTIVE:
-        Serial.println("Servidor Ativo");
-        break;
-      case ServerState::INACTIVE:
-        Serial.println("Servidor Inativo");
-        break;
-      default:
-        Serial.println("Servidor com Erro");
-        break;
-    }
-  }
+  server.loop();
+  delay(1000);
 }
 
 // Definição das funções de controle do servidor
 bool powerServerOn() {
   // Aperta o botão devagar
-  const int MAX_ANG = 20;
+  const int MAX_ANG = 15;
   for (int ang = 0; ang <= MAX_ANG; ang++) {
     servo.write(ang);
-    delay(10);
+    delay(50);
   }
-  delay(100);
+  delay(500);
 
   servo.write(0);
   delay(100);
@@ -84,32 +70,53 @@ bool powerServerOn() {
 }
 
 bool powerServerOff() {
+  HTTPClient http;
+
   // Manda o comando de desligar
-  Serial.println("/desligar");
-  Serial.flush();
-  delay(100);
+  http.begin(HOST_NAME + "/desligar");
+  const int httpCode = http.GET(); 
 
   // Lê a resposta do servidor
   // para verificar o recebimento da mensagem
-  const auto response = Serial.readStringUntil('\n');
-  if (response == "OK")
+  if (httpCode == 200)
     return true;
   else
     return false;
 }
 
 ServerState pingServer() {
+  HTTPClient http;
+
   // Manda o comando de ping
-  Serial.println("/ping");
-  Serial.flush();
-  delay(100);
+  http.begin(HOST_NAME + "/ping");
+  const int httpCode = http.GET(); 
 
   // Lê a resposta do servidor
-  const String response = Serial.readStringUntil('\n');
-  if (response == "OK")
+  // para verificar o recebimento da mensagem
+  if (httpCode == 200)
     return ServerState::ACTIVE;
-  else if (response == "ERRO")
-    return ServerState::ERROR;
-  else  // Se não recebemos mensagem, servidor desligado
+  else
     return ServerState::INACTIVE;
+}
+
+String serverCommand(const String &command) {
+  HTTPClient http;
+
+  String formated_command;
+
+  for (int i = 0; i < command.length(); i++) {
+    if (command[i] == ' ') {
+      formated_command += "%20";
+    } else {
+      formated_command += command[i];
+    }
+  }
+
+  http.begin(HOST_NAME + "/do/" + formated_command);
+  const int httpCode = http.GET();
+
+  if (httpCode == 200)
+    return http.getString();
+  else
+    return "ERRO: Não foi possível enviar o comando";
 }
