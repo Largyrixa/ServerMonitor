@@ -24,7 +24,7 @@ def do(command:str):
     try:
         if os.path.exists(user_path):
             with open(user_path, 'r') as f:
-                content = f.read.strip()
+                content = f.read().strip()
                 if content:
                     linux_user = content
     except Exception:
