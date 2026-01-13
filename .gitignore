@@ -2,3 +2,4 @@ docs/.obsidian/
 src/environment.h
 server-app/.venv/
 server-app/__pycache__/
+server-app/.user

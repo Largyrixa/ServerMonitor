@@ -1,8 +1,12 @@
 import subprocess
 import time
+import os
 from flask import Flask
 
 app = Flask(__name__)
+path = os.path.abspath(__file__)
+path = os.path.dirname(path)
+user_path = os.path.join(path, '.user')
 
 @app.route('/desligar')
 def desligar():
@@ -17,10 +21,14 @@ def do(command:str):
     response = ''
 
     linux_user = 'root'
-    with open('.user', 'r') as user:
-        tmp = user.read()
-        if tmp and len(tmp) > 0:
-            linux_user = tmp
+    try:
+        if os.path.exists(user_path):
+            with open(user_path, 'r') as f:
+                content = f.read.strip()
+                if content:
+                    linux_user = content
+    except Exception:
+        pass
 
     command = f"runuser -l {linux_user} -c '{command}'"
     try:
