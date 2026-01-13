@@ -105,7 +105,7 @@ String serverCommand(const String &command) {
   String formated_command;
 
   for (int i = 0; i < command.length(); i++) {
-    if (command[i] == ' ') {
+    if (command[i] == ' ' || (i == 0 && command[0] == '/')) {
       formated_command += "%20";
     } else {
       formated_command += command[i];
