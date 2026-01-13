@@ -6,21 +6,7 @@ app = Flask(__name__)
 
 @app.route('/desligar')
 def desligar():
-    time_now = time.localtime()
-    h, m = time_now.tm_hour, time_now.tm_min
-
-    m += 1
-
-    if m >= 60:
-        m = 0
-        h += 1
-        if h >= 24:
-            h = 0
-
-    command = f"shutdown {h:02}:{m:02}"
-    subprocess.run(command.split())
-
-    return f"Desligando em 1 minuto"
+    subprocess.run('sudo systemctl poweroff'.split())
 
 @app.route('/ping')
 def ping():
@@ -29,6 +15,14 @@ def ping():
 @app.route('/do/<path:command>')
 def do(command:str):
     response = ''
+
+    linux_user = 'root'
+    with open('.user', 'r') as user:
+        tmp = user.read()
+        if tmp and len(tmp) > 0:
+            linux_user = tmp
+
+    command = f"runuser -l {linux_user} -c '{command}'"
     try:
         result = subprocess.run(
                 command,
