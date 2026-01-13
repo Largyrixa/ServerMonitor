@@ -24,12 +24,12 @@ void ServerController::begin() {
 
     const String commands = F(
         "["
-        "{\"command\":\"start\", \"description\":\"Mensagem enviada quando você abre o chat com o bot\"},"
         "{\"command\":\"ligar\", \"description\":\"Liga o servidor\"},"
         "{\"command\":\"desligar\", \"description\":\"Desliga o servidor\"},"
         "{\"command\":\"status\", \"description\":\"Verifica o status do servidor\"},"
-        "{\"command\":\"do\", \"description\":\"Envia um comando para o servidor\"}"
+        "{\"command\":\"do\", \"description\":\"Envia um comando para o servidor\"},"
         "{\"command\":\"help\", \"description\":\"Ajuda na utilização do bot\"},"
+        "{\"command\":\"start\", \"description\":\"Mensagem enviada quando você abre o chat com o bot\"}"
         "]"
     );
     bot.setMyCommands(commands);
