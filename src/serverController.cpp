@@ -16,6 +16,7 @@ ServerController::ServerController(UniversalTelegramBot &_bot,
     pingFunc(_pingFunc),
     commandFunc(_commandFunc){}
 
+
 void ServerController::begin() {
     if (!loadState())
         state = ServerState::ERROR;
@@ -171,6 +172,11 @@ void ServerController::loop() {
         return;
     }
 
+    if (currentState == ServerState::ERROR) {
+        sendLog("ATENÇÃO: Servidor com erro!\nVerificação manual necessária");
+        return;
+    }
+    
     // Aviso de mudança de estado
     if (currentState != state) {
         const String msg = statusMsg(currentState);
@@ -178,10 +184,7 @@ void ServerController::loop() {
         state = currentState;   
     }
 
-    if (currentState == ServerState::ERROR) {
-        sendLog("ATENÇÃO: Servidor com erro!\nVerificação manual necessária");
-    }
-    
+
     saveState();
 
     // Tratamento dos comandos do bot
