@@ -34,11 +34,11 @@ Servo servo;
  * caso queira apenas testar, os valores padrão
  * estão abaixo
  */
-#ifndef (SERVER_IP)
+#ifndef SERVER_IP
 #define SERVER_IP "0.0.0.0"
 #endif
 
-#ifndef (SERVER_PORT)
+#ifndef SERVER_PORT
 #define SERVER_PORT "8080"
 #endif
 
