@@ -27,7 +27,22 @@ Servo servo;
 
 #define SERIAL_BAUD 115200
 
-const String HOST_NAME = "http://"SERVER_IP":3232";
+// Definição do HOST_NAME
+/* ATENÇÃO: 
+ * SERVER_IP e SERVER_PORT devem ser definidos em 
+ * src/environment.h, como variáveis de ambiente,
+ * caso queira apenas testar, os valores padrão
+ * estão abaixo
+ */
+#ifndef (SERVER_IP)
+#define SERVER_IP "0.0.0.0"
+#endif
+
+#ifndef (SERVER_PORT)
+#define SERVER_PORT "8080"
+#endif
+
+const String HOST_NAME = "http://"SERVER_IP":"SERVER_PORT;
 
 void setup() {
   Serial.begin(SERIAL_BAUD);
