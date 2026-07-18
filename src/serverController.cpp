@@ -143,16 +143,16 @@ void ServerController::sendLog(const String &msg) { bot.sendMessage(CHAT_ID, msg
 static const String statusMsg(const ServerState &state) {
     switch (state) {
     case ServerState::ACTIVE:
-        return "Servidor ativo 👍🥥";
+        return "Servidor ativo";
         break;
     case ServerState::BOOTING:
-        return "Guenta aí, servidor ligando ✋🥥";
+        return "Servidor ligando...";
         break;
     case ServerState::INACTIVE:
-        return "Servidor inativo 🥥👎";
+        return "Servidor inativo";
         break;
     case ServerState::SHUTTING_DOWN:
-        return "Servidor desligando ❌🥥";
+        return "Servidor desligando";
         break;
     default:
         return "NO COCONUTS DETECTED!";
@@ -180,7 +180,7 @@ void ServerController::loop() {
     // Aviso de mudança de estado
     if (currentState != state) {
         const String msg = statusMsg(currentState);
-        sendLog("🚨Aviso de mudança de estado🚨\n" + msg);
+        sendLog("Aviso de mudança de estado\n" + msg);
         state = currentState;   
     }
 
