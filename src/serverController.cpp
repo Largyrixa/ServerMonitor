@@ -36,12 +36,14 @@ void ServerController::begin() {
     bot.setMyCommands(commands);
 }
 
-ServerState ServerController::getState() { return pingFunc(); }
+ServerState ServerController::ping() { return pingFunc(); }
+
+ServerState ServerController::state() { return this->state; }
 
 void ServerController::powerOn()
 {
     // Verificação inicial
-    state = getState();
+    state = ping();
     if (state == ServerState::ACTIVE) {
         sendLog("O servidor já está ligado!");
         saveState();
@@ -60,7 +62,7 @@ void ServerController::powerOn()
 void ServerController::powerOff()
 {
     // Verificação inicial
-    state = getState();
+    state = ping();
     if (state == ServerState::INACTIVE) {
         sendLog("O servidor já está desligado!");
         saveState();
@@ -77,7 +79,7 @@ void ServerController::powerOff()
 
 String ServerController::sendCommand(const String &command) { 
     const String response = commandFunc(command);
-    state = getState();
+    state = ping();
     return response;
 }
 
@@ -161,7 +163,7 @@ static const String statusMsg(const ServerState &state) {
 }
 
 void ServerController::loop() {
-    const auto currentState = getState();
+    const auto currentState = ping();
 
     // Se o servidor desligou e estava ligado
     if ((currentState == ServerState::INACTIVE || currentState == ServerState::SHUTTING_DOWN) &&

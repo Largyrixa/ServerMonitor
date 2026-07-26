@@ -44,7 +44,11 @@ public:
     // Inicializa o controlador, liga o servidor, se necessário
     void begin();
 
-    ServerState getState();
+    // Retorna o estado atual do servidor, independente do que está salvo (não salva o valor)
+    ServerState ping();
+
+    // Retorna o valor salvo do estado do servidor
+    ServerState state();
 
     // Atualiza e salva o estado atual na memória
     bool saveState();
