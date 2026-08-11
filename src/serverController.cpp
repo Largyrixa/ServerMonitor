@@ -23,6 +23,16 @@ void ServerController::begin() {
     
     sendLog("Hello, world!");
 
+    // Re-liga o servidor sozinho após uma queda de energia ou algo assim
+    if (state == ServerState::ACTIVE && ping() == ServerState::INACTIVE) {
+        // Aguarda 10 segundos para caso o servidor esteja ligando
+        delay(10000);
+        if (ping() == ServerState::INACTIVE) {
+            sendLog("ALERTA: O servidor desligou. Ligando novamente!");
+            powerOn();
+        }
+    }
+
     const String commands = F(
         "["
         "{\"command\":\"ligar\", \"description\":\"Liga o servidor\"},"
@@ -38,7 +48,7 @@ void ServerController::begin() {
 
 ServerState ServerController::ping() { return pingFunc(); }
 
-ServerState ServerController::state() { return this->state; }
+ServerState ServerController::getState() { return this->state; }
 
 void ServerController::powerOn()
 {
@@ -163,16 +173,7 @@ static const String statusMsg(const ServerState &state) {
 }
 
 void ServerController::loop() {
-    const auto currentState = ping();
-
-    // Se o servidor desligou e estava ligado
-    if ((currentState == ServerState::INACTIVE || currentState == ServerState::SHUTTING_DOWN) &&
-        (state == ServerState::ACTIVE)) {
-        sendLog("ALERTA: O servidor desligou. Ligando novamente!");
-        powerOn();
-        state = ServerState::BOOTING;
-        return;
-    }
+    auto currentState = ping();
 
     if (currentState == ServerState::ERROR) {
         sendLog("ATENÇÃO: Servidor com erro!\nVerificação manual necessária");
@@ -181,11 +182,14 @@ void ServerController::loop() {
     
     // Aviso de mudança de estado
     if (currentState != state) {
-        const String msg = statusMsg(currentState);
-        sendLog("Aviso de mudança de estado\n" + msg);
+        // Dupla verificação para evitar falhas da função de ping
+        currentState = ping();
+        if (currentState != state) {
+            const String msg = statusMsg(currentState);
+            sendLog("Aviso de mudança de estado\n" + msg);
+        }
         state = currentState;   
     }
-
 
     saveState();
 

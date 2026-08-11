@@ -48,7 +48,7 @@ public:
     ServerState ping();
 
     // Retorna o valor salvo do estado do servidor
-    ServerState state();
+    ServerState getState();
 
     // Atualiza e salva o estado atual na memória
     bool saveState();

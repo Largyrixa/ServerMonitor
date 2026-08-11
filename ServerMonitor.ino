@@ -87,9 +87,9 @@ bool powerServerOff() {
 ServerState pingServer() {
   HTTPClient http;
 
-  // Timeout de 1000 ms
-  http.setConnectTimeout(1000);
-  http.setTimeout(1000);
+  // Timeout de 5 s
+  http.setConnectTimeout(5000);
+  http.setTimeout(5000);
 
   // Manda o comando de ping
   http.begin(HOST_NAME + "/ping");
